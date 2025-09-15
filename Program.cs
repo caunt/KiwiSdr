@@ -1,4 +1,5 @@
 ﻿using System.Net.WebSockets;
+using System.Net;
 using System.Text;
 
 // =============== Top-level configuration ===============
@@ -6,11 +7,12 @@ double centerFrequencyHertz = 7050000.0;
 int ioSampleRateHertz = 12000;
 string kiwiHost = "okno.ddns.net";
 string? kiwiPassword = Environment.GetEnvironmentVariable("KIWI_PWD");
+string? httpProxy = Environment.GetEnvironmentVariable("HTTP_PROXY");
 int printEveryPackets = 10;
 // =======================================================
 
 // =============== Program entry ===============
-var kiwiSettings = new KiwiSettings(kiwiHost, 8073, ioSampleRateHertz, centerFrequencyHertz, kiwiPassword);
+var kiwiSettings = new KiwiSettings(kiwiHost, 8073, ioSampleRateHertz, centerFrequencyHertz, kiwiPassword, httpProxy);
 var consoleConsumer = new ConsoleIqConsumer(printEveryPackets);
 await using var kiwiClient = new KiwiClient(kiwiSettings, consoleConsumer);
 
@@ -39,6 +41,9 @@ sealed class KiwiClient : IAsyncDisposable
         AudioConsumer = audioConsumer;
         webSocket.Options.SetRequestHeader("Origin", $"http://{settings.HostName}");
         webSocket.Options.SetRequestHeader("User-Agent", "KiwiClient/OOP");
+
+        if (!string.IsNullOrWhiteSpace(settings.HttpProxy))
+            webSocket.Options.Proxy = new WebProxy(settings.HttpProxy);
     }
 
     public async Task ConnectAndStreamAsync()
@@ -185,7 +190,8 @@ sealed record KiwiSettings(
     int Port,
     int InputOutputSampleRateHertz,
     double CenterFrequencyHertz,
-    string? UserPassword)
+    string? UserPassword,
+    string? HttpProxy)
 {
     public Uri WebSocketUri { get; } = KiwiProtocol.BuildWebSocketUri(HostName, Port);
 }
